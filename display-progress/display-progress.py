@@ -44,7 +44,7 @@ with open(sys.argv[1], 'r', encoding='ascii') as gcode:
     print('{:.1f}mm filament used'.format(filament_total))
 
     if not has_progress_enabled:
-        print('No  enableprinting mode (M530) command detected. Exiting.')
+        print('No enableprinting mode (M530) command detected. Exiting.')
         sys.exit(0)
 
     with open('/tmp/progressed.gcode', 'w', encoding='ascii') as output:
