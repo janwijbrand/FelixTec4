@@ -2,17 +2,38 @@
 
 import os
 import sys
-import datetime
 
 
 controls = 0
-filament_total = 0
 has_progress_enabled = False
 layers_total = 1
 
 
+class Filament(object):
+
+    def __init__(self, total):
+        self.cummulative = 0
+        self.position = 0
+        self.total = total
+
+    @property
+    def used(self):
+        return self.cummulative + self.position
+
+    def progress(self):
+        return round((self.used / self.total) * 100, 1)
+
+    def extrude(self, position):
+        self.position = position
+
+    def reset(self):
+        self.cummulative += self.position
+        self.position = 0
+
+
 with open(sys.argv[1], 'r', encoding='ascii') as gcode:
     filament_length = 0
+    filament_total = 0
     previous_z = 0
 
     for line in gcode:
@@ -48,8 +69,7 @@ with open(sys.argv[1], 'r', encoding='ascii') as gcode:
         sys.exit(0)
 
     with open('/tmp/progressed.gcode', 'w', encoding='ascii') as output:
-        filament_length = 0
-        filament_progress = 0
+        filament = Filament(total=filament_total)
         layer = 1
         previous_percentage = None
         previous_z = 0
@@ -71,20 +91,22 @@ with open(sys.argv[1], 'r', encoding='ascii') as gcode:
                 if line.startswith('G1 '):
                     for param in line.split():
                         if param.startswith('E'):
-                            filament_length = float(param[1:])
+                            filament.extrude(float(param[1:]))
                 if line.startswith('G92 '):
                     for param in line.split():
                         if param.startswith('E'):
-                            filament_progress += filament_length
-                            filament_length = 0
+                            filament.reset()
                 if line.startswith(';'):
                     if 'before layer change' in line:
                         layer += 1
                     continue
                 if line.startswith('M117'):
                     continue
-                percentage = round(
-                    (filament_progress / filament_total) * 100, 1)
+                percentage = filament.progress()
+
+                if percentage > 100:
+                    import pdb; pdb.set_trace()
+
                 if previous_percentage is None or \
                         percentage > previous_percentage:
                     output.write('M532 X{:.1f} L{}\n'.format(
